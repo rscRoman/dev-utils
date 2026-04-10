@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Pretty-print, minify, and syntax-highlight JSON.">
+	<title>JSON Formatter — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+	<style>
+		/* ── JSON syntax colors ── */
+		:root {
+			--json-key:  #e8ff47;
+			--json-str:  #86efac;
+			--json-num:  #fdba74;
+			--json-bool: #d8b4fe;
+			--json-null: #94a3b8;
+		}
+		[data-theme="light"] {
+			--json-key:  #1d4ed8;
+			--json-str:  #15803d;
+			--json-num:  #c2410c;
+			--json-bool: #7c3aed;
+			--json-null: #64748b;
+		}
+
+		.json-key  { color: var(--json-key); }
+		.json-str  { color: var(--json-str); }
+		.json-num  { color: var(--json-num); }
+		.json-bool { color: var(--json-bool); }
+		.json-null { color: var(--json-null); }
+
+		/* ── Indent toggle ── */
+		.ctrl-row {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			flex-wrap: wrap;
+			margin-top: 10px;
+		}
+
+		.ctrl-row .btn-row { margin-top: 0; }
+
+		.indent-toggle {
+			display: flex;
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			overflow: hidden;
+			flex-shrink: 0;
+		}
+
+		.indent-btn {
+			font-family: var(--mono);
+			font-size: 11px;
+			letter-spacing: 0.04em;
+			padding: 6px 11px;
+			background: none;
+			border: none;
+			border-right: 1px solid var(--border);
+			color: var(--muted);
+			cursor: pointer;
+			line-height: 1;
+			transition: background 0.1s, color 0.1s;
+		}
+
+		.indent-btn:last-child { border-right: none; }
+
+		.indent-btn.active {
+			background: var(--surface-2);
+			color: var(--accent);
+		}
+
+		/* ── Output ── */
+		.json-out {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			font-family: var(--mono);
+			font-size: 13px;
+			line-height: 1.65;
+			padding: 13px;
+			overflow: auto;
+			max-height: 540px;
+			white-space: pre;
+			tab-size: 4;
+			margin: 0;
+		}
+
+		.json-out[data-empty="true"] {
+			color: var(--muted);
+			font-style: italic;
+			white-space: normal;
+		}
+
+		.json-out.is-error { color: #f87171; white-space: normal; }
+
+		/* ── Stats bar ── */
+		.stats-bar {
+			display: flex;
+			gap: 16px;
+			flex-wrap: wrap;
+			font-family: var(--mono);
+			font-size: 11px;
+			color: var(--muted);
+			margin-bottom: 8px;
+		}
+
+		.stats-bar strong { color: var(--text); font-weight: 500; }
+	</style>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">json</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>JSON Formatter</h1>
+			<p>// pretty-print, minify, and syntax-highlight JSON</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="input">Input</label>
+			<textarea id="input" placeholder="Paste JSON here…" spellcheck="false" autocomplete="off" style="min-height: 140px;"></textarea>
+		</div>
+
+		<div class="ctrl-row">
+			<div class="btn-row">
+				<button class="btn btn-primary" id="btn-format">Format</button>
+				<button class="btn btn-primary" id="btn-minify">Minify</button>
+				<button class="btn btn-ghost"   id="btn-example">Example</button>
+				<button class="btn btn-ghost"   id="btn-clear">Clear</button>
+			</div>
+			<div class="indent-toggle" id="indent-toggle">
+				<button class="indent-btn active" data-indent="tab">tab</button>
+				<button class="indent-btn"        data-indent="2">2</button>
+				<button class="indent-btn"        data-indent="4">4</button>
+			</div>
+		</div>
+
+		<hr class="divider">
+
+		<div class="out-row">
+			<span class="out-row-label">Output</span>
+			<button class="btn-copy" id="btn-copy">copy</button>
+		</div>
+
+		<div class="stats-bar" id="stats" style="display: none;"></div>
+
+		<pre class="json-out" id="output" data-empty="true">— paste JSON and press Format or Minify —</pre>
+	</main>
+
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+
+	<script>
+		var inputEl  = document.getElementById('input');
+		var outputEl = document.getElementById('output');
+		var statsEl  = document.getElementById('stats');
+		var indent   = 'tab';
+
+		/* ── Indent toggle ─────────────────────────── */
+
+		document.getElementById('indent-toggle').addEventListener('click', function (e) {
+			var btn = e.target.closest('.indent-btn');
+			if (!btn) return;
+			document.querySelectorAll('.indent-btn').forEach(function (b) { b.classList.remove('active'); });
+			btn.classList.add('active');
+			indent = btn.dataset.indent;
+		});
+
+		function getIndent() {
+			return indent === 'tab' ? '\t' : parseInt(indent, 10);
+		}
+
+		/* ── Helpers ───────────────────────────────── */
+
+		function escapeHtml(s) {
+			return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		}
+
+		function highlight(json) {
+			return escapeHtml(json).replace(
+				/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+				function (match) {
+					var cls;
+					if (/^"/.test(match))         cls = /:$/.test(match) ? 'json-key' : 'json-str';
+					else if (/true|false/.test(match)) cls = 'json-bool';
+					else if (/null/.test(match))   cls = 'json-null';
+					else                           cls = 'json-num';
+					return '<span class="' + cls + '">' + match + '</span>';
+				}
+			);
+		}
+
+		function formatBytes(n) {
+			return n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+		}
+
+		function setResult(text) {
+			outputEl.classList.remove('is-error');
+			outputEl.innerHTML     = highlight(text);
+			outputEl.dataset.empty = 'false';
+			var lines = text.split('\n').length;
+			statsEl.innerHTML =
+				'<span><strong>' + lines + '</strong> lines</span>' +
+				'<span><strong>' + text.length.toLocaleString() + '</strong> chars</span>' +
+				'<span><strong>' + formatBytes(new Blob([text]).size) + '</strong></span>';
+			statsEl.style.display = 'flex';
+		}
+
+		function setEmpty(msg) {
+			outputEl.classList.remove('is-error');
+			outputEl.textContent   = msg;
+			outputEl.dataset.empty = 'true';
+			statsEl.style.display  = 'none';
+		}
+
+		function setError(msg) {
+			outputEl.classList.add('is-error');
+			outputEl.textContent   = msg;
+			outputEl.dataset.empty = 'false';
+			statsEl.style.display  = 'none';
+		}
+
+		/* ── Format / Minify ───────────────────────── */
+
+		function format() {
+			var raw = inputEl.value.trim();
+			if (!raw) { setEmpty('— paste JSON and press Format or Minify —'); return; }
+			try {
+				setResult(JSON.stringify(JSON.parse(raw), null, getIndent()));
+			} catch (e) {
+				setError('Error: ' + e.message);
+			}
+		}
+
+		function minify() {
+			var raw = inputEl.value.trim();
+			if (!raw) { setEmpty('— paste JSON and press Format or Minify —'); return; }
+			try {
+				setResult(JSON.stringify(JSON.parse(raw)));
+			} catch (e) {
+				setError('Error: ' + e.message);
+			}
+		}
+
+		document.getElementById('btn-format').addEventListener('click', format);
+		document.getElementById('btn-minify').addEventListener('click', minify);
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			inputEl.value = '{"name":"dev-utils","version":"1.0","tools":["base64","ascii","hex","timestamp","json"],"meta":{"author":"Roman","open_source":true,"stars":null}}';
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			inputEl.value = '';
+			setEmpty('— paste JSON and press Format or Minify —');
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-copy').addEventListener('click', function () {
+			if (outputEl.dataset.empty === 'true') return;
+			var btn = document.getElementById('btn-copy');
+			navigator.clipboard.writeText(outputEl.innerText).then(function () {
+				btn.textContent = 'copied!';
+				setTimeout(function () { btn.textContent = 'copy'; }, 1500);
+			});
+		});
+
+		/* ── Auto-format on paste ───────────────────── */
+
+		inputEl.addEventListener('paste', function () {
+			setTimeout(format, 0);
+		});
+	</script>
+</body>
+</html>

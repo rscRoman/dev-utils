@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Convert between bits, bytes, KB, MB, GB and more — decimal and binary.">
+	<title>File Size Converter — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+	<style>
+		.input-row {
+			display: flex;
+			gap: 8px;
+		}
+
+		.input-row input[type="number"] {
+			flex: 1;
+			min-width: 0;
+			/* hide browser spin buttons */
+			-moz-appearance: textfield;
+		}
+
+		.input-row input[type="number"]::-webkit-outer-spin-button,
+		.input-row input[type="number"]::-webkit-inner-spin-button {
+			-webkit-appearance: none;
+		}
+
+		.input-row select {
+			font-family: var(--mono);
+			font-size: 13px;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			color: var(--text);
+			padding: 0 12px;
+			height: 40px;
+			cursor: pointer;
+			outline: none;
+			transition: border-color 0.12s;
+			flex-shrink: 0;
+		}
+
+		.input-row select:focus { border-color: var(--accent); }
+
+		/* Table tweaks for this page */
+		.out-table th:nth-child(2),
+		.out-table th:nth-child(3),
+		.out-table td:nth-child(2),
+		.out-table td:nth-child(3) {
+			text-align: right;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.out-table th:nth-child(2) { color: var(--accent); opacity: 0.7; }
+		.out-table th:nth-child(3) { color: var(--muted); }
+
+		.out-table .active-row td {
+			background: var(--surface-2);
+		}
+
+		.out-table .active-row td:first-child {
+			color: var(--accent);
+		}
+
+		/* Clickable value cells */
+		.val-cell {
+			cursor: pointer;
+			transition: color 0.1s;
+		}
+
+		.val-cell:hover { color: var(--accent); }
+		.val-cell.copied { color: var(--accent); }
+
+		.copy-hint {
+			font-family: var(--mono);
+			font-size: 10px;
+			color: var(--muted);
+			margin-top: 8px;
+			letter-spacing: 0.03em;
+		}
+
+		optgroup { color: var(--muted); }
+	</style>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">filesize</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>File Size Converter</h1>
+			<p>// decimal (×1000) and binary (×1024) — side by side</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label">Value & unit</label>
+			<div class="input-row">
+				<input type="number" id="input-val" placeholder="e.g. 1" min="0" step="any" autocomplete="off">
+				<select id="input-unit">
+					<optgroup label="Base">
+						<option value="bit">Bit</option>
+						<option value="byte">Byte</option>
+					</optgroup>
+					<optgroup label="Decimal (×1000)">
+						<option value="kb">KB</option>
+						<option value="mb">MB</option>
+						<option value="gb" selected>GB</option>
+						<option value="tb">TB</option>
+						<option value="pb">PB</option>
+					</optgroup>
+					<optgroup label="Binary (×1024)">
+						<option value="kib">KiB</option>
+						<option value="mib">MiB</option>
+						<option value="gib">GiB</option>
+						<option value="tib">TiB</option>
+						<option value="pib">PiB</option>
+					</optgroup>
+				</select>
+			</div>
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-ghost" id="btn-example">Example</button>
+			<button class="btn btn-ghost" id="btn-clear">Clear</button>
+		</div>
+
+		<hr class="divider">
+
+		<div id="results" style="display: none;">
+			<div class="table-wrap">
+				<table class="out-table" id="conv-table">
+					<thead>
+						<tr>
+							<th>Unit</th>
+							<th>Decimal ×1000</th>
+							<th>Binary ×1024</th>
+						</tr>
+					</thead>
+					<tbody id="conv-body"></tbody>
+				</table>
+			</div>
+			<p class="copy-hint">// click any value to copy</p>
+		</div>
+
+		<div class="out-box" id="placeholder" data-empty="true">— enter a value to convert —</div>
+	</main>
+
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+
+	<script>
+		/* ── Unit definitions ──────────────────────── */
+
+		// byteFactor: how many bytes = 1 of this unit
+		var INPUT_UNITS = {
+			'bit':  1 / 8,
+			'byte': 1,
+			'kb':   1e3,
+			'mb':   1e6,
+			'gb':   1e9,
+			'tb':   1e12,
+			'pb':   1e15,
+			'kib':  1024,
+			'mib':  1024 * 1024,
+			'gib':  1024 * 1024 * 1024,
+			'tib':  1024 * 1024 * 1024 * 1024,
+			'pib':  1024 * 1024 * 1024 * 1024 * 1024,
+		};
+
+		// Output rows: [label, decFactor (bytes per unit), binFactor, matchIds]
+		var ROWS = [
+			{ label: 'Bit',       dec: 1 / 8,                 bin: 1 / 8,                 match: ['bit']        },
+			{ label: 'Byte',      dec: 1,                     bin: 1,                     match: ['byte']       },
+			{ label: 'KB / KiB',  dec: 1e3,                   bin: 1024,                  match: ['kb', 'kib']  },
+			{ label: 'MB / MiB',  dec: 1e6,                   bin: 1024 ** 2,             match: ['mb', 'mib']  },
+			{ label: 'GB / GiB',  dec: 1e9,                   bin: 1024 ** 3,             match: ['gb', 'gib']  },
+			{ label: 'TB / TiB',  dec: 1e12,                  bin: 1024 ** 4,             match: ['tb', 'tib']  },
+			{ label: 'PB / PiB',  dec: 1e15,                  bin: 1024 ** 5,             match: ['pb', 'pib']  },
+		];
+
+		/* ── Number formatter ──────────────────────── */
+
+		function fmt(n) {
+			if (!isFinite(n)) return '∞';
+			if (n === 0)      return '0';
+			var abs = Math.abs(n);
+			if (abs >= 1e15 || (abs < 0.0001 && abs > 0)) {
+				return n.toExponential(4);
+			}
+			var s = parseFloat(n.toPrecision(10)).toString();
+			var dot = s.indexOf('.');
+			var intPart = dot >= 0 ? s.slice(0, dot) : s;
+			var decPart = dot >= 0 ? s.slice(dot) : '';
+			intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+			return intPart + decPart;
+		}
+
+		/* ── Conversion ────────────────────────────── */
+
+		var valEl   = document.getElementById('input-val');
+		var unitEl  = document.getElementById('input-unit');
+		var tbody   = document.getElementById('conv-body');
+		var resEl   = document.getElementById('results');
+		var phEl    = document.getElementById('placeholder');
+
+		function convert() {
+			var raw  = valEl.value.trim();
+			var unit = unitEl.value;
+
+			if (raw === '' || isNaN(parseFloat(raw))) {
+				resEl.style.display = 'none';
+				phEl.style.display  = '';
+				phEl.dataset.empty  = 'true';
+				phEl.textContent    = '— enter a value to convert —';
+				return;
+			}
+
+			var val   = parseFloat(raw);
+			var bytes = val * INPUT_UNITS[unit];
+
+			tbody.innerHTML = '';
+			ROWS.forEach(function (row) {
+				var tr = document.createElement('tr');
+				if (row.match.indexOf(unit) !== -1) tr.className = 'active-row';
+
+				var tdLabel = document.createElement('td');
+				tdLabel.textContent = row.label;
+				tr.appendChild(tdLabel);
+
+				// Decimal value
+				var decVal = bytes / row.dec;
+				var tdDec  = document.createElement('td');
+				tdDec.className    = 'val-cell';
+				tdDec.textContent  = fmt(decVal);
+				tdDec.dataset.raw  = parseFloat(decVal.toPrecision(15)).toString();
+				tdDec.addEventListener('click', function () { copyCell(tdDec); });
+				tr.appendChild(tdDec);
+
+				// Binary value — same as decimal for Bit and Byte rows
+				var binVal = bytes / row.bin;
+				var tdBin  = document.createElement('td');
+				tdBin.textContent = (row.dec === row.bin) ? '—' : fmt(binVal);
+				if (row.dec !== row.bin) {
+					tdBin.className   = 'val-cell';
+					tdBin.dataset.raw = parseFloat(binVal.toPrecision(15)).toString();
+					tdBin.addEventListener('click', function () { copyCell(tdBin); });
+				} else {
+					tdBin.style.color = 'var(--muted)';
+				}
+				tr.appendChild(tdBin);
+
+				tbody.appendChild(tr);
+			});
+
+			phEl.style.display  = 'none';
+			resEl.style.display = '';
+		}
+
+		function copyCell(td) {
+			var val = td.dataset.raw || td.textContent;
+			navigator.clipboard.writeText(val).then(function () {
+				td.classList.add('copied');
+				setTimeout(function () { td.classList.remove('copied'); }, 1000);
+			});
+		}
+
+		valEl.addEventListener('input',  convert);
+		unitEl.addEventListener('change', convert);
+
+		valEl.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') convert();
+		});
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			valEl.value  = '1';
+			unitEl.value = 'gb';
+			convert();
+			valEl.focus();
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			valEl.value = '';
+			resEl.style.display = 'none';
+			phEl.style.display  = '';
+			phEl.textContent    = '— enter a value to convert —';
+			phEl.dataset.empty  = 'true';
+			valEl.focus();
+		});
+	</script>
+</body>
+</html>

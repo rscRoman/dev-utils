@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Inspect a string character by character — decimal, hex, and Unicode codepoints.">
+	<title>ASCII / Codepoints — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">ascii</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>ASCII / Codepoints</h1>
+			<p>// inspect each character — decimal, hex, and Unicode codepoint</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="input">Input string</label>
+			<textarea id="input" placeholder="Type or paste a string…" spellcheck="false" autocomplete="off" style="min-height: 80px;"></textarea>
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-primary" id="btn-inspect">Inspect</button>
+			<button class="btn btn-ghost" id="btn-example">Example</button>
+			<button class="btn btn-ghost" id="btn-clear">Clear</button>
+		</div>
+
+		<hr class="divider">
+
+		<span class="field-label">Codepoints</span>
+		<div id="output-area">
+			<div class="out-box" id="placeholder" data-empty="true">— enter a string and press Inspect —</div>
+		</div>
+	</main>
+
+	<script>
+		var inputEl  = document.getElementById('input');
+		var area     = document.getElementById('output-area');
+		var phEl     = document.getElementById('placeholder');
+
+		// Human-readable label for control/whitespace characters
+		function charLabel(cp) {
+			var controls = {
+				0:'NUL', 1:'SOH', 2:'STX', 3:'ETX', 4:'EOT', 5:'ENQ', 6:'ACK',
+				7:'BEL', 8:'BS',  9:'HT',  10:'LF', 11:'VT', 12:'FF', 13:'CR',
+				14:'SO', 15:'SI', 27:'ESC', 32:'SP', 127:'DEL'
+			};
+			return controls[cp] || null;
+		}
+
+		function charDisplay(ch, cp) {
+			if (cp === 32)  return '␣';
+			if (cp === 9)   return '⇥';
+			if (cp === 10)  return '↵';
+			if (cp === 13)  return '↵';
+			if (cp < 32 || (cp >= 127 && cp <= 159)) return '·';
+			return ch;
+		}
+
+		function buildTable(text) {
+			// Array.from correctly splits at Unicode codepoints (handles emoji / surrogates)
+			var chars = Array.from(text);
+			if (!chars.length) return null;
+
+			var wrap  = document.createElement('div');
+			wrap.className = 'table-wrap';
+
+			var table = document.createElement('table');
+			table.className = 'out-table';
+
+			// Header
+			var thead = table.createTHead();
+			var hrow  = thead.insertRow();
+			['#', 'Char', 'Dec', 'Hex', 'Unicode', 'Name'].forEach(function (h) {
+				var th = document.createElement('th');
+				th.textContent = h;
+				hrow.appendChild(th);
+			});
+
+			// Body
+			var tbody = table.createTBody();
+			chars.forEach(function (ch, i) {
+				var cp    = ch.codePointAt(0);
+				var hex   = cp.toString(16).toUpperCase();
+				var label = charLabel(cp) || '';
+
+				var row = tbody.insertRow();
+
+				// Index
+				var tdIdx = row.insertCell(); tdIdx.className = 'td-index'; tdIdx.textContent = i + 1;
+				// Char display
+				var tdCh  = row.insertCell(); tdCh.className  = 'td-char';  tdCh.textContent = charDisplay(ch, cp);
+				// Decimal
+				var tdDec = row.insertCell(); tdDec.className = 'td-num';   tdDec.textContent = cp;
+				// Hex
+				var tdHex = row.insertCell(); tdHex.className = 'td-num';   tdHex.textContent = '0x' + hex.padStart(2, '0');
+				// Unicode
+				var tdUni = row.insertCell(); tdUni.textContent = 'U+' + hex.padStart(4, '0');
+				// Name / hint
+				var tdName = row.insertCell(); tdName.style.color = 'var(--muted)'; tdName.textContent = label;
+			});
+
+			wrap.appendChild(table);
+			return wrap;
+		}
+
+		function showPlaceholder(msg) {
+			area.innerHTML = '';
+			phEl.textContent = msg;
+			phEl.dataset.empty = 'true';
+			area.appendChild(phEl);
+		}
+
+		document.getElementById('btn-inspect').addEventListener('click', function () {
+			var text = inputEl.value;
+			if (!text) { showPlaceholder('— enter a string first —'); return; }
+
+			var tbl = buildTable(text);
+			area.innerHTML = '';
+			if (tbl) {
+				area.appendChild(tbl);
+			}
+		});
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			inputEl.value = 'Hello 🌍';
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			inputEl.value = '';
+			showPlaceholder('— enter a string and press Inspect —');
+			inputEl.focus();
+		});
+
+		inputEl.addEventListener('paste', function () {
+			setTimeout(function () { document.getElementById('btn-inspect').click(); }, 0);
+		});
+	</script>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>

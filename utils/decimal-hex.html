@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Convert a decimal number to uppercase hex with byte-pair formatting.">
+	<title>Decimal → Hex — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">decimal-hex</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>Decimal → Hex</h1>
+			<p>// uses the last 10 digits of the input — shows uppercase hex and byte-pair format</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="input">Decimal input</label>
+			<input type="text" id="input" placeholder="e.g. 1234567890" inputmode="numeric" spellcheck="false" autocomplete="off">
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-primary" id="btn-convert">Convert</button>
+			<button class="btn btn-ghost" id="btn-example">Example</button>
+			<button class="btn btn-ghost" id="btn-clear">Clear</button>
+		</div>
+
+		<hr class="divider">
+
+		<!-- Placeholder shown when no result yet -->
+		<div class="out-box" id="placeholder" data-empty="true">— enter a decimal number and press Convert —</div>
+
+		<!-- Result panel (hidden until first conversion) -->
+		<div id="results" style="display: none;">
+			<div class="field">
+				<div class="out-row">
+					<span class="out-row-label">Hex — uppercase</span>
+					<button class="btn-copy" id="copy-hex">copy</button>
+				</div>
+				<div class="out-box" id="out-hex"></div>
+			</div>
+
+			<div class="field">
+				<div class="out-row">
+					<span class="out-row-label">Hex — byte pairs</span>
+					<button class="btn-copy" id="copy-pairs">copy</button>
+				</div>
+				<div class="out-box" id="out-pairs"></div>
+			</div>
+
+			<div>
+				<span class="field-label">Digits used (last 10)</span>
+				<div class="out-box" id="out-digits" style="color: var(--muted);"></div>
+			</div>
+		</div>
+	</main>
+
+	<script>
+		var inputEl  = document.getElementById('input');
+		var phEl     = document.getElementById('placeholder');
+		var resEl    = document.getElementById('results');
+		var outHex   = document.getElementById('out-hex');
+		var outPairs = document.getElementById('out-pairs');
+		var outDigits= document.getElementById('out-digits');
+
+		function showPlaceholder(msg, empty) {
+			resEl.style.display = 'none';
+			phEl.style.display  = '';
+			phEl.textContent    = msg;
+			phEl.dataset.empty  = empty ? 'true' : 'false';
+		}
+
+		// Pad to even number of hex chars, then split into pairs joined by dashes
+		function bytePairs(hex) {
+			if (hex.length % 2) hex = '0' + hex;
+			var pairs = [];
+			for (var i = 0; i < hex.length; i += 2) pairs.push(hex.slice(i, i + 2));
+			return pairs.join('-');
+		}
+
+		function makeCopier(btnId, sourceEl) {
+			document.getElementById(btnId).addEventListener('click', function () {
+				var btn = document.getElementById(btnId);
+				navigator.clipboard.writeText(sourceEl.textContent).then(function () {
+					btn.textContent = 'copied!';
+					setTimeout(function () { btn.textContent = 'copy'; }, 1500);
+				});
+			});
+		}
+
+		function convert() {
+			var raw = inputEl.value.trim();
+			if (!raw) { showPlaceholder('— enter a decimal number first —', true); return; }
+
+			// Strip any non-digit characters (spaces, dashes used for readability)
+			var digits = raw.replace(/\D/g, '');
+			if (!digits) {
+				showPlaceholder('Error: no digits found in input', false);
+				return;
+			}
+
+			// Take the last 10 characters
+			var last10 = digits.slice(-10);
+
+			var hex;
+			try {
+				hex = BigInt(last10).toString(16).toUpperCase();
+			} catch (e) {
+				showPlaceholder('Error: could not parse "' + last10 + '" as a number', false);
+				return;
+			}
+
+			outHex.textContent    = hex;
+			outPairs.textContent  = bytePairs(hex);
+			outDigits.textContent = last10;
+
+			phEl.style.display  = 'none';
+			resEl.style.display = '';
+		}
+
+		document.getElementById('btn-convert').addEventListener('click', convert);
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			inputEl.value = '1234567890';
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			inputEl.value = '';
+			showPlaceholder('— enter a decimal number and press Convert —', true);
+			inputEl.focus();
+		});
+
+		// Convert on Enter or paste
+		inputEl.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') convert();
+		});
+
+		inputEl.addEventListener('paste', function () {
+			setTimeout(convert, 0);
+		});
+
+		makeCopier('copy-hex',   outHex);
+		makeCopier('copy-pairs', outPairs);
+	</script>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>

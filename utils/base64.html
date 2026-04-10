@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Encode plaintext to Base64 or decode Base64 to plaintext.">
+	<title>Base64 — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">base64</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>Base64</h1>
+			<p>// encode plaintext → Base64, or decode Base64 → plaintext</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="input">Input</label>
+			<textarea id="input" placeholder="Paste text or a Base64 string here…" spellcheck="false" autocomplete="off"></textarea>
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-primary" id="btn-encode">Encode</button>
+			<button class="btn btn-primary" id="btn-decode">Decode</button>
+			<button class="btn btn-ghost" id="btn-example">Example</button>
+			<button class="btn btn-ghost" id="btn-clear">Clear</button>
+		</div>
+
+		<hr class="divider">
+
+		<div class="out-row">
+			<span class="out-row-label">Output</span>
+			<button class="btn-copy" id="btn-copy">copy</button>
+		</div>
+		<div class="out-box" id="output" data-empty="true">— no output yet —</div>
+	</main>
+
+	<script>
+		var inputEl  = document.getElementById('input');
+		var outputEl = document.getElementById('output');
+
+		function setOutput(text, empty) {
+			outputEl.textContent = text;
+			outputEl.dataset.empty = empty ? 'true' : 'false';
+		}
+
+		// UTF-8-safe encode: text → bytes → base64
+		function encodeB64(str) {
+			var bytes = new TextEncoder().encode(str);
+			var bin = Array.from(bytes, function (b) { return String.fromCharCode(b); }).join('');
+			return btoa(bin);
+		}
+
+		// UTF-8-safe decode: base64 → bytes → text
+		function decodeB64(str) {
+			var bin = atob(str);
+			var bytes = Uint8Array.from(bin, function (c) { return c.charCodeAt(0); });
+			return new TextDecoder().decode(bytes);
+		}
+
+		document.getElementById('btn-encode').addEventListener('click', function () {
+			var val = inputEl.value;
+			if (!val) { setOutput('— enter some text first —', true); return; }
+			try {
+				setOutput(encodeB64(val), false);
+			} catch (e) {
+				setOutput('Error: ' + e.message, false);
+			}
+		});
+
+		document.getElementById('btn-decode').addEventListener('click', function () {
+			var val = inputEl.value.trim();
+			if (!val) { setOutput('— enter a Base64 string first —', true); return; }
+			try {
+				setOutput(decodeB64(val), false);
+			} catch (e) {
+				setOutput('Error: invalid Base64 input', false);
+			}
+		});
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			inputEl.value = 'Hello, World!';
+			setOutput('— press Encode or Decode —', true);
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			inputEl.value = '';
+			setOutput('— no output yet —', true);
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-copy').addEventListener('click', function () {
+			if (outputEl.dataset.empty === 'true') return;
+			var btn = document.getElementById('btn-copy');
+			navigator.clipboard.writeText(outputEl.textContent).then(function () {
+				btn.textContent = 'copied!';
+				setTimeout(function () { btn.textContent = 'copy'; }, 1500);
+			});
+		});
+
+		// Returns true if the string looks like a valid Base64-encoded value.
+		// Checks: only Base64 chars, length is not ≡ 1 (mod 4) which is never valid,
+		// and atob() actually accepts it.
+		function looksLikeBase64(s) {
+			if (!s || s.length < 4) return false;
+			if (!/^[A-Za-z0-9+/]+=*$/.test(s)) return false;
+			if (s.replace(/=/g, '').length % 4 === 1) return false;
+			try { atob(s); return true; } catch (e) { return false; }
+		}
+
+		inputEl.addEventListener('paste', function () {
+			setTimeout(function () {
+				var val = inputEl.value.trim();
+				if (!val) return;
+				if (looksLikeBase64(val)) {
+					document.getElementById('btn-decode').click();
+				} else {
+					document.getElementById('btn-encode').click();
+				}
+			}, 0);
+		});
+	</script>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>

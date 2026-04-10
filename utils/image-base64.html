@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Drop or select an image file and get its Base64 string.">
+	<title>Image → Base64 — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+	<style>
+		.drop-zone {
+			border: 1px dashed var(--border);
+			border-radius: var(--r);
+			background: var(--surface);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 10px;
+			padding: 48px 24px;
+			cursor: pointer;
+			transition: border-color 0.12s, background 0.12s;
+			text-align: center;
+			position: relative;
+		}
+
+		.drop-zone:hover,
+		.drop-zone.dragover {
+			border-color: var(--accent);
+			background: var(--surface-2);
+		}
+
+		.drop-zone input[type="file"] {
+			position: absolute;
+			inset: 0;
+			opacity: 0;
+			cursor: pointer;
+			width: 100%;
+			height: 100%;
+		}
+
+		.drop-icon {
+			font-family: var(--mono);
+			font-size: 22px;
+			color: var(--muted);
+			line-height: 1;
+		}
+
+		.drop-zone.dragover .drop-icon { color: var(--accent); }
+
+		.drop-label {
+			font-family: var(--mono);
+			font-size: 12px;
+			color: var(--muted);
+		}
+
+		.drop-label strong {
+			color: var(--text);
+			font-weight: 500;
+		}
+
+		.drop-hint {
+			font-family: var(--mono);
+			font-size: 11px;
+			color: var(--border);
+		}
+
+		.img-thumb {
+			max-width: 100%;
+			max-height: 180px;
+			border-radius: var(--r);
+			border: 1px solid var(--border);
+			display: none;
+		}
+
+		.img-thumb.show { display: block; }
+
+		.meta-row {
+			display: flex;
+			gap: 20px;
+			flex-wrap: wrap;
+			font-family: var(--mono);
+			font-size: 12px;
+			color: var(--muted);
+			margin-top: 10px;
+		}
+
+		.meta-row span { white-space: nowrap; }
+		.meta-row strong { color: var(--text); font-weight: 500; }
+	</style>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">image-base64</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>Image → Base64</h1>
+			<p>// drop or select an image — get the raw Base64 and data URI</p>
+		</div>
+
+		<div class="drop-zone" id="drop-zone">
+			<input type="file" id="file-input" accept="image/*">
+			<span class="drop-icon">[img]</span>
+			<span class="drop-label"><strong>Drop an image</strong> or click to browse</span>
+			<span class="drop-hint">PNG, JPG, GIF, WebP, SVG, BMP…</span>
+		</div>
+
+		<div class="btn-row" style="margin-top: 10px;">
+			<button class="btn btn-ghost" id="btn-clear">Clear</button>
+		</div>
+
+		<hr class="divider">
+
+		<div id="results" style="display: none;">
+			<div style="margin-bottom: 20px;">
+				<img class="img-thumb" id="thumb" alt="Preview">
+				<div class="meta-row" id="meta"></div>
+			</div>
+
+			<div class="field">
+				<div class="out-row">
+					<span class="out-row-label">Base64 (raw)</span>
+					<button class="btn-copy" id="copy-raw">copy</button>
+				</div>
+				<div class="out-box" id="out-raw" style="max-height: 120px; overflow-y: auto;"></div>
+			</div>
+
+			<div class="field">
+				<div class="out-row">
+					<span class="out-row-label">Data URI</span>
+					<button class="btn-copy" id="copy-uri">copy</button>
+				</div>
+				<div class="out-box" id="out-uri" style="max-height: 120px; overflow-y: auto;"></div>
+			</div>
+		</div>
+
+		<div class="out-box" id="placeholder" data-empty="true">— drop or select an image to convert —</div>
+	</main>
+
+	<script>
+		var dropZone  = document.getElementById('drop-zone');
+		var fileInput = document.getElementById('file-input');
+		var thumbEl   = document.getElementById('thumb');
+		var metaEl    = document.getElementById('meta');
+		var resEl     = document.getElementById('results');
+		var phEl      = document.getElementById('placeholder');
+		var outRaw    = document.getElementById('out-raw');
+		var outUri    = document.getElementById('out-uri');
+
+		function formatBytes(n) {
+			if (n < 1024)       return n + ' B';
+			if (n < 1048576)    return (n / 1024).toFixed(1) + ' KB';
+			return (n / 1048576).toFixed(2) + ' MB';
+		}
+
+		function processFile(file) {
+			if (!file || !file.type.startsWith('image/')) {
+				phEl.textContent   = 'Error: please select an image file';
+				phEl.dataset.empty = 'false';
+				phEl.style.display = '';
+				resEl.style.display = 'none';
+				return;
+			}
+
+			var reader = new FileReader();
+			reader.onload = function (e) {
+				var dataUri = e.target.result;
+				var raw     = dataUri.split(',')[1];
+
+				// Thumbnail
+				thumbEl.src = dataUri;
+				thumbEl.classList.add('show');
+
+				// Metadata
+				metaEl.innerHTML =
+					'<span><strong>' + file.name + '</strong></span>' +
+					'<span>type: <strong>' + file.type + '</strong></span>' +
+					'<span>size: <strong>' + formatBytes(file.size) + '</strong></span>' +
+					'<span>base64 length: <strong>' + raw.length + ' chars</strong></span>';
+
+				outRaw.textContent = raw;
+				outUri.textContent = dataUri;
+
+				phEl.style.display  = 'none';
+				resEl.style.display = '';
+			};
+			reader.readAsDataURL(file);
+		}
+
+		fileInput.addEventListener('change', function () {
+			if (fileInput.files.length) processFile(fileInput.files[0]);
+		});
+
+		// Drag & drop
+		dropZone.addEventListener('dragover', function (e) {
+			e.preventDefault();
+			dropZone.classList.add('dragover');
+		});
+
+		['dragleave', 'dragend'].forEach(function (ev) {
+			dropZone.addEventListener(ev, function () { dropZone.classList.remove('dragover'); });
+		});
+
+		dropZone.addEventListener('drop', function (e) {
+			e.preventDefault();
+			dropZone.classList.remove('dragover');
+			var file = e.dataTransfer.files[0];
+			if (file) processFile(file);
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			fileInput.value  = '';
+			thumbEl.src      = '';
+			thumbEl.classList.remove('show');
+			metaEl.innerHTML = '';
+			outRaw.textContent = '';
+			outUri.textContent = '';
+			resEl.style.display = 'none';
+			phEl.textContent    = '— drop or select an image to convert —';
+			phEl.dataset.empty  = 'true';
+			phEl.style.display  = '';
+		});
+
+		function makeCopier(btnId, sourceEl) {
+			document.getElementById(btnId).addEventListener('click', function () {
+				var btn = document.getElementById(btnId);
+				navigator.clipboard.writeText(sourceEl.textContent).then(function () {
+					btn.textContent = 'copied!';
+					setTimeout(function () { btn.textContent = 'copy'; }, 1500);
+				});
+			});
+		}
+
+		makeCopier('copy-raw', outRaw);
+		makeCopier('copy-uri', outUri);
+	</script>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>

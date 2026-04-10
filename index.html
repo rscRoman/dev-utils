@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Small utilities for everyday dev tasks — Base64, ASCII, Hex and more.">
+	<title>dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="css/style.css">
+	<script src="js/theme.js"></script>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="index.html" class="site-name">dev-utils</a>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="index-main">
+		<div class="index-intro">
+			<h1><span>~/</span>dev-utils</h1>
+			<p>// small utilities for everyday dev tasks</p>
+		</div>
+
+		<div class="card-grid">
+			<a href="utils/base64.html" class="card">
+				<span class="card-tag">encode · decode</span>
+				<h2>Base64</h2>
+				<p>Encode plaintext to Base64 or decode Base64 back to plaintext.</p>
+			</a>
+			<a href="utils/base64-image.html" class="card">
+				<span class="card-tag">visualize</span>
+				<h2>Base64 → Image</h2>
+				<p>Paste a Base64-encoded image string and preview it instantly.</p>
+			</a>
+			<a href="utils/image-base64.html" class="card">
+				<span class="card-tag">convert</span>
+				<h2>Image → Base64</h2>
+				<p>Drop or select an image file and get the raw Base64 and data URI.</p>
+			</a>
+			<a href="utils/ascii.html" class="card">
+				<span class="card-tag">inspect</span>
+				<h2>ASCII / Codepoints</h2>
+				<p>Inspect a string character by character — decimal, hex, Unicode.</p>
+			</a>
+			<a href="utils/decimal-hex.html" class="card">
+				<span class="card-tag">convert</span>
+				<h2>Decimal → Hex</h2>
+				<p>Convert a decimal number to uppercase hex with byte-pair formatting.</p>
+			</a>
+			<a href="utils/timestamp.html" class="card">
+				<span class="card-tag">convert</span>
+				<h2>Timestamp</h2>
+				<p>Live Unix timestamp, convert to date or date to Unix — seconds and milliseconds.</p>
+			</a>
+			<a href="utils/json.html" class="card">
+				<span class="card-tag">format · inspect</span>
+				<h2>JSON Formatter</h2>
+				<p>Pretty-print or minify JSON with syntax highlighting.</p>
+			</a>
+			<a href="utils/filesize.html" class="card">
+				<span class="card-tag">convert</span>
+				<h2>File Size</h2>
+				<p>Convert between bit, byte, KB, MB, GB… — decimal and binary side by side.</p>
+			</a>
+		</div>
+	</main>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>

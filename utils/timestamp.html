@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Unix timestamp converter — live clock, timestamp to date, date to timestamp.">
+	<title>Timestamp — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+	<style>
+		.live-box {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			overflow: hidden;
+		}
+
+		.live-row {
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			padding: 13px 14px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.live-row:last-child { border-bottom: none; }
+
+		.live-unit {
+			font-family: var(--mono);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.1em;
+			color: var(--muted);
+			width: 24px;
+			flex-shrink: 0;
+		}
+
+		.live-val {
+			font-family: var(--mono);
+			font-size: 20px;
+			color: var(--accent);
+			flex: 1;
+			letter-spacing: 0.04em;
+		}
+
+		.out-grid {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			overflow: hidden;
+		}
+
+		.out-grid-row {
+			display: grid;
+			grid-template-columns: 90px 1fr auto;
+			align-items: center;
+			gap: 12px;
+			padding: 10px 14px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.out-grid-row:last-child { border-bottom: none; }
+
+		.out-grid-row:hover { background: var(--surface-2); }
+
+		.out-grid-key {
+			font-family: var(--mono);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: var(--muted);
+			white-space: nowrap;
+		}
+
+		.out-grid-val {
+			font-family: var(--mono);
+			font-size: 13px;
+			color: var(--text);
+			word-break: break-all;
+		}
+
+		.out-grid-val.is-relative { color: var(--muted); font-style: italic; }
+	</style>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">timestamp</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>Timestamp</h1>
+			<p>// Unix timestamp ↔ human-readable date</p>
+		</div>
+
+		<!-- Live clock -->
+		<span class="field-label">Current Unix timestamp</span>
+		<div class="live-box">
+			<div class="live-row">
+				<span class="live-unit">s</span>
+				<span class="live-val" id="live-s">—</span>
+				<button class="btn-copy" id="copy-live-s">copy</button>
+			</div>
+			<div class="live-row">
+				<span class="live-unit">ms</span>
+				<span class="live-val" id="live-ms">—</span>
+				<button class="btn-copy" id="copy-live-ms">copy</button>
+			</div>
+		</div>
+
+		<hr class="divider">
+
+		<!-- Unix → Date -->
+		<div class="util-hdr" style="margin-bottom: 20px;">
+			<h1 style="font-size: 17px;">Unix → Date</h1>
+			<p>// seconds or milliseconds — auto-detected</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="unix-input">Unix timestamp</label>
+			<input type="text" id="unix-input" placeholder="e.g. 1712345678" inputmode="numeric" spellcheck="false" autocomplete="off">
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-primary" id="btn-unix-convert">Convert</button>
+			<button class="btn btn-ghost"   id="btn-unix-now">Now</button>
+			<button class="btn btn-ghost"   id="btn-unix-clear">Clear</button>
+		</div>
+
+		<div style="margin-top: 16px;">
+			<div class="out-grid" id="unix-out" style="display: none;">
+				<div class="out-grid-row">
+					<span class="out-grid-key">Local</span>
+					<span class="out-grid-val" id="out-local"></span>
+					<button class="btn-copy" data-copy="out-local">copy</button>
+				</div>
+				<div class="out-grid-row">
+					<span class="out-grid-key">UTC</span>
+					<span class="out-grid-val" id="out-utc"></span>
+					<button class="btn-copy" data-copy="out-utc">copy</button>
+				</div>
+				<div class="out-grid-row">
+					<span class="out-grid-key">ISO 8601</span>
+					<span class="out-grid-val" id="out-iso"></span>
+					<button class="btn-copy" data-copy="out-iso">copy</button>
+				</div>
+				<div class="out-grid-row">
+					<span class="out-grid-key">Relative</span>
+					<span class="out-grid-val is-relative" id="out-rel"></span>
+					<span></span>
+				</div>
+			</div>
+			<div class="out-box" id="unix-ph" data-empty="true">— enter a Unix timestamp and press Convert —</div>
+		</div>
+
+		<hr class="divider">
+
+		<!-- Date → Unix -->
+		<div class="util-hdr" style="margin-bottom: 20px;">
+			<h1 style="font-size: 17px;">Date → Unix</h1>
+			<p>// interpreted as local time</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="date-input">Date & time</label>
+			<input type="datetime-local" id="date-input" style="font-family: var(--mono); font-size: 13px;">
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-primary" id="btn-date-convert">Convert</button>
+			<button class="btn btn-ghost"   id="btn-date-now">Now</button>
+			<button class="btn btn-ghost"   id="btn-date-clear">Clear</button>
+		</div>
+
+		<div style="margin-top: 16px;">
+			<div class="out-grid" id="date-out" style="display: none;">
+				<div class="out-grid-row">
+					<span class="out-grid-key">Seconds</span>
+					<span class="out-grid-val" id="out-s"></span>
+					<button class="btn-copy" data-copy="out-s">copy</button>
+				</div>
+				<div class="out-grid-row">
+					<span class="out-grid-key">Milliseconds</span>
+					<span class="out-grid-val" id="out-ms"></span>
+					<button class="btn-copy" data-copy="out-ms">copy</button>
+				</div>
+			</div>
+			<div class="out-box" id="date-ph" data-empty="true">— pick a date and press Convert —</div>
+		</div>
+	</main>
+
+	<script>
+		/* ── Live clock ────────────────────────────── */
+
+		function tickLive() {
+			var now = Date.now();
+			document.getElementById('live-s').textContent  = Math.floor(now / 1000);
+			document.getElementById('live-ms').textContent = now;
+		}
+
+		tickLive();
+		setInterval(tickLive, 1000);
+
+		/* ── Helpers ───────────────────────────────── */
+
+		// If value has 13+ digits treat as ms, otherwise as seconds
+		function toMs(val) {
+			var n = BigInt(val.trim());
+			return n > 9999999999n ? Number(n) : Number(n) * 1000;
+		}
+
+		function pad(n) { return String(n).padStart(2, '0'); }
+
+		function formatLocal(d) {
+			var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			return d.toLocaleString('en-GB', {
+				weekday: 'short', year: 'numeric', month: 'short', day: '2-digit',
+				hour: '2-digit', minute: '2-digit', second: '2-digit',
+				timeZoneName: 'short'
+			});
+		}
+
+		function formatUTC(d) {
+			return d.toUTCString();
+		}
+
+		function relative(ms) {
+			var diff = Date.now() - ms;
+			var abs  = Math.abs(diff);
+			var fut  = diff < 0;
+			var s = Math.floor(abs / 1000);
+			var m = Math.floor(s / 60);
+			var h = Math.floor(m / 60);
+			var dy = Math.floor(h / 24);
+			var label;
+			if (s < 5)         label = 'just now';
+			else if (s < 60)   label = s + ' seconds';
+			else if (m < 60)   label = m + ' minute' + (m !== 1 ? 's' : '');
+			else if (h < 24)   label = h + ' hour'   + (h !== 1 ? 's' : '');
+			else if (dy < 30)  label = dy + ' day'   + (dy !== 1 ? 's' : '');
+			else if (dy < 365) label = Math.floor(dy / 30) + ' months';
+			else               label = (dy / 365).toFixed(1) + ' years';
+			if (label === 'just now') return label;
+			return fut ? 'in ' + label : label + ' ago';
+		}
+
+		/* ── Copy helper ───────────────────────────── */
+
+		function copyText(btn, text) {
+			navigator.clipboard.writeText(text).then(function () {
+				btn.textContent = 'copied!';
+				setTimeout(function () { btn.textContent = 'copy'; }, 1500);
+			});
+		}
+
+		// Delegate copy clicks for data-copy buttons
+		document.addEventListener('click', function (e) {
+			var btn = e.target.closest('[data-copy]');
+			if (!btn) return;
+			var src = document.getElementById(btn.dataset.copy);
+			if (src) copyText(btn, src.textContent);
+		});
+
+		document.getElementById('copy-live-s').addEventListener('click', function () {
+			copyText(this, document.getElementById('live-s').textContent);
+		});
+		document.getElementById('copy-live-ms').addEventListener('click', function () {
+			copyText(this, document.getElementById('live-ms').textContent);
+		});
+
+		/* ── Unix → Date ───────────────────────────── */
+
+		var unixPh  = document.getElementById('unix-ph');
+		var unixOut = document.getElementById('unix-out');
+
+		function convertUnix() {
+			var raw = document.getElementById('unix-input').value.trim();
+			if (!raw) {
+				unixOut.style.display = 'none';
+				unixPh.style.display  = '';
+				unixPh.textContent    = '— enter a Unix timestamp first —';
+				unixPh.dataset.empty  = 'true';
+				return;
+			}
+			try {
+				var ms = toMs(raw);
+				var d  = new Date(ms);
+				if (isNaN(d.getTime())) throw new Error('invalid');
+				document.getElementById('out-local').textContent = formatLocal(d);
+				document.getElementById('out-utc').textContent   = formatUTC(d);
+				document.getElementById('out-iso').textContent   = d.toISOString();
+				document.getElementById('out-rel').textContent   = relative(ms);
+				unixPh.style.display  = 'none';
+				unixOut.style.display = '';
+			} catch (e) {
+				unixOut.style.display = 'none';
+				unixPh.style.display  = '';
+				unixPh.textContent    = 'Error: "' + raw + '" is not a valid timestamp';
+				unixPh.dataset.empty  = 'false';
+			}
+		}
+
+		document.getElementById('btn-unix-convert').addEventListener('click', convertUnix);
+
+		document.getElementById('btn-unix-now').addEventListener('click', function () {
+			document.getElementById('unix-input').value = Math.floor(Date.now() / 1000);
+			convertUnix();
+		});
+
+		document.getElementById('btn-unix-clear').addEventListener('click', function () {
+			document.getElementById('unix-input').value = '';
+			unixOut.style.display = 'none';
+			unixPh.style.display  = '';
+			unixPh.textContent    = '— enter a Unix timestamp and press Convert —';
+			unixPh.dataset.empty  = 'true';
+		});
+
+		document.getElementById('unix-input').addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') convertUnix();
+		});
+
+		document.getElementById('unix-input').addEventListener('paste', function () {
+			setTimeout(convertUnix, 0);
+		});
+
+		/* ── Date → Unix ───────────────────────────── */
+
+		var datePh  = document.getElementById('date-ph');
+		var dateOut = document.getElementById('date-out');
+
+		function convertDate() {
+			var val = document.getElementById('date-input').value;
+			if (!val) {
+				dateOut.style.display = 'none';
+				datePh.style.display  = '';
+				datePh.textContent    = '— pick a date first —';
+				datePh.dataset.empty  = 'true';
+				return;
+			}
+			var d = new Date(val);
+			if (isNaN(d.getTime())) {
+				dateOut.style.display = 'none';
+				datePh.style.display  = '';
+				datePh.textContent    = 'Error: invalid date';
+				datePh.dataset.empty  = 'false';
+				return;
+			}
+			var ms = d.getTime();
+			document.getElementById('out-s').textContent  = Math.floor(ms / 1000);
+			document.getElementById('out-ms').textContent = ms;
+			datePh.style.display  = 'none';
+			dateOut.style.display = '';
+		}
+
+		document.getElementById('btn-date-convert').addEventListener('click', convertDate);
+
+		document.getElementById('btn-date-now').addEventListener('click', function () {
+			var now = new Date();
+			// datetime-local value format: YYYY-MM-DDTHH:mm
+			var local = now.getFullYear() + '-' +
+				pad(now.getMonth() + 1) + '-' +
+				pad(now.getDate()) + 'T' +
+				pad(now.getHours()) + ':' +
+				pad(now.getMinutes());
+			document.getElementById('date-input').value = local;
+			convertDate();
+		});
+
+		document.getElementById('btn-date-clear').addEventListener('click', function () {
+			document.getElementById('date-input').value = '';
+			dateOut.style.display = 'none';
+			datePh.style.display  = '';
+			datePh.textContent    = '— pick a date and press Convert —';
+			datePh.dataset.empty  = 'true';
+		});
+
+		document.getElementById('date-input').addEventListener('change', convertDate);
+	</script>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>

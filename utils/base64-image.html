@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Paste a Base64-encoded image string and preview it.">
+	<title>Base64 → Image — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">base64-image</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main">
+		<div class="util-hdr">
+			<h1>Base64 → Image</h1>
+			<p>// paste a Base64-encoded image string and preview it instantly</p>
+		</div>
+
+		<div class="field">
+			<label class="field-label" for="input">Base64 string</label>
+			<textarea id="input" placeholder="Paste Base64 here (with or without data URI prefix)…" spellcheck="false" autocomplete="off" style="min-height: 90px;"></textarea>
+		</div>
+
+		<div class="btn-row">
+			<button class="btn btn-primary" id="btn-preview">Preview</button>
+			<button class="btn btn-ghost" id="btn-example">Example</button>
+			<button class="btn btn-ghost" id="btn-clear">Clear</button>
+		</div>
+
+		<hr class="divider">
+
+		<span class="field-label">Preview</span>
+		<div class="img-wrap" id="img-wrap">
+			<img id="preview-img" alt="Base64 image preview" src="">
+		</div>
+		<div class="out-box" id="status" data-empty="true">— paste a Base64 image string and press Preview —</div>
+	</main>
+
+	<script>
+		var inputEl  = document.getElementById('input');
+		var imgWrap  = document.getElementById('img-wrap');
+		var imgEl    = document.getElementById('preview-img');
+		var statusEl = document.getElementById('status');
+
+		function setStatus(text, empty) {
+			statusEl.textContent = text;
+			statusEl.dataset.empty = empty ? 'true' : 'false';
+			statusEl.style.display = '';
+		}
+
+		function showImage(src) {
+			imgEl.src = src;
+			imgWrap.classList.add('show');
+			statusEl.style.display = 'none';
+		}
+
+		function hideImage() {
+			imgWrap.classList.remove('show');
+			imgEl.src = '';
+			statusEl.style.display = '';
+		}
+
+		// Guess MIME type from common Base64 magic-byte prefixes
+		function guessMime(b64) {
+			if (/^\/9j\//.test(b64))       return 'image/jpeg';
+			if (/^iVBORw/.test(b64))       return 'image/png';
+			if (/^R0lGOD/.test(b64))       return 'image/gif';
+			if (/^UklGR/.test(b64))        return 'image/webp';
+			if (/^Qk0/.test(b64))          return 'image/bmp';
+			if (/^PHN2Z/.test(b64))        return 'image/svg+xml';
+			if (/^AAABAA/.test(b64))       return 'image/x-icon';
+			return 'image/png'; // fallback
+		}
+
+		document.getElementById('btn-preview').addEventListener('click', function () {
+			var raw = inputEl.value.trim();
+			if (!raw) {
+				hideImage();
+				setStatus('— enter a Base64 string first —', true);
+				return;
+			}
+
+			var src;
+			if (/^data:image\//.test(raw)) {
+				src = raw;
+			} else {
+				// Strip any surrounding whitespace or line breaks that may appear when copying
+				var clean = raw.replace(/\s/g, '');
+				src = 'data:' + guessMime(clean) + ';base64,' + clean;
+			}
+
+			// Load via a fresh Image to detect errors before assigning to visible element
+			var probe = new Image();
+			probe.onload  = function () { showImage(src); };
+			probe.onerror = function () {
+				hideImage();
+				setStatus('Error: invalid or unsupported image data', false);
+			};
+			probe.src = src;
+		});
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			// Generate a small branded SVG as the example image
+			var svg = [
+				'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80">',
+				'<rect width="200" height="80" fill="#0d0d0f"/>',
+				'<rect x="0" y="0" width="4" height="80" fill="#e8ff47"/>',
+				'<text x="20" y="32" font-family="monospace" font-size="13" fill="#e8ff47">base64-image</text>',
+				'<text x="20" y="56" font-family="monospace" font-size="12" fill="#6c6c7c">// preview utility</text>',
+				'</svg>'
+			].join('');
+			inputEl.value = 'data:image/svg+xml;base64,' + btoa(svg);
+			hideImage();
+			setStatus('— press Preview —', true);
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			inputEl.value = '';
+			hideImage();
+			setStatus('— paste a Base64 image string and press Preview —', true);
+			inputEl.focus();
+		});
+
+		inputEl.addEventListener('paste', function () {
+			setTimeout(function () { document.getElementById('btn-preview').click(); }, 0);
+		});
+	</script>
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+</body>
+</html>
