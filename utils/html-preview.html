@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Paste HTML and preview it live in a sandbox — shareable via link, no account.">
+	<title>HTML Preview — dev-utils</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+	<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/theme.js"></script>
+	<style>
+		/* ── Wide layout ── */
+		.util-main.wide { max-width: 1440px; }
+		.util-main.wide .util-hdr { margin-bottom: 24px; }
+
+		.ctrl-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			flex-wrap: wrap;
+			margin-bottom: 14px;
+		}
+
+		.ctrl-row .btn-row { margin-top: 0; }
+
+		/* ── Segmented toggle (viewport width) ── */
+		.seg-toggle {
+			display: flex;
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			overflow: hidden;
+			flex-shrink: 0;
+		}
+
+		.seg-btn {
+			font-family: var(--mono);
+			font-size: 11px;
+			letter-spacing: 0.04em;
+			padding: 6px 11px;
+			background: none;
+			border: none;
+			border-right: 1px solid var(--border);
+			color: var(--muted);
+			cursor: pointer;
+			line-height: 1;
+			transition: background 0.1s, color 0.1s;
+		}
+
+		.seg-btn:last-child { border-right: none; }
+
+		.seg-btn.active {
+			background: var(--surface-2);
+			color: var(--accent);
+		}
+
+		/* ── Split view ── */
+		.split {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			gap: 16px;
+			height: calc(100vh - var(--hh) - 190px);
+			min-height: 420px;
+		}
+
+		.pane {
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+		}
+
+		.pane .out-row { flex-shrink: 0; }
+
+		#input {
+			flex-grow: 1;
+			min-height: 0;
+			resize: none;
+			tab-size: 4;
+			white-space: pre;
+			overflow: auto;
+		}
+
+		.out-row-meta {
+			font-family: var(--mono);
+			font-size: 10px;
+			color: var(--muted);
+			letter-spacing: 0.04em;
+		}
+
+		.out-row-right {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		/* ── Preview frame ── */
+		.frame-wrap {
+			flex-grow: 1;
+			min-height: 0;
+			display: flex;
+			justify-content: center;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			overflow: auto;
+		}
+
+		.frame-wrap iframe {
+			display: block;
+			width: 100%;
+			height: 100%;
+			border: none;
+			background: #fff;
+			flex-shrink: 0;
+		}
+
+		.frame-wrap.constrained iframe {
+			border-left: 1px solid var(--border);
+			border-right: 1px solid var(--border);
+		}
+
+		.frame-wrap:fullscreen {
+			border: none;
+			border-radius: 0;
+			background: var(--bg);
+		}
+
+		/* ── Console ── */
+		.console {
+			flex-shrink: 0;
+			margin-top: 10px;
+			border: 1px solid var(--border);
+			border-radius: var(--r);
+			background: var(--surface);
+		}
+
+		.console-hdr {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 5px 10px;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.console-hdr .out-row-label::before {
+			content: '▸ ';
+		}
+
+		.console.open .console-hdr .out-row-label::before {
+			content: '▾ ';
+		}
+
+		.console-count.has-err { color: #f87171; }
+
+		.console-body {
+			display: none;
+			max-height: 150px;
+			overflow: auto;
+			border-top: 1px solid var(--border);
+			font-family: var(--mono);
+			font-size: 12px;
+			line-height: 1.55;
+		}
+
+		.console.open .console-body { display: block; }
+
+		.log-line {
+			padding: 3px 10px;
+			border-bottom: 1px solid var(--border);
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+
+		.log-line:last-child { border-bottom: none; }
+		.log-line.warn  { color: #fbbf24; }
+		.log-line.error { color: #f87171; }
+		.log-line.info  { color: var(--muted); }
+
+		.log-empty {
+			padding: 6px 10px;
+			color: var(--muted);
+			font-style: italic;
+		}
+
+		@media (max-width: 900px) {
+			.split {
+				grid-template-columns: 1fr;
+				height: auto;
+			}
+			#input { min-height: 280px; }
+			.frame-wrap { min-height: 480px; }
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<div class="hd-left">
+			<a href="../index.html" class="site-name">dev-utils</a>
+			<span class="sep">/</span>
+			<span class="page-label">html-preview</span>
+		</div>
+		<button id="theme-toggle" aria-label="Toggle theme"></button>
+	</header>
+
+	<main class="util-main wide">
+		<div class="util-hdr">
+			<h1>HTML Preview</h1>
+			<p>// paste HTML, see it live — sandboxed, shareable via link, no account</p>
+		</div>
+
+		<div class="ctrl-row">
+			<div class="btn-row">
+				<button class="btn btn-primary" id="btn-share">Copy share link</button>
+				<button class="btn btn-ghost"   id="btn-fullscreen">Fullscreen</button>
+				<button class="btn btn-ghost"   id="btn-example">Example</button>
+				<button class="btn btn-ghost"   id="btn-clear">Clear</button>
+			</div>
+			<div class="seg-toggle" id="width-toggle">
+				<button class="seg-btn active" data-width="0">full</button>
+				<button class="seg-btn"        data-width="1280">1280</button>
+				<button class="seg-btn"        data-width="768">768</button>
+				<button class="seg-btn"        data-width="375">375</button>
+			</div>
+		</div>
+
+		<div class="split">
+			<div class="pane">
+				<div class="out-row">
+					<label class="out-row-label" for="input">HTML</label>
+					<span class="out-row-meta" id="size"></span>
+				</div>
+				<textarea id="input" placeholder="Paste HTML here…" spellcheck="false" autocomplete="off"></textarea>
+			</div>
+
+			<div class="pane">
+				<div class="out-row">
+					<span class="out-row-label">Preview</span>
+					<div class="out-row-right">
+						<span class="out-row-meta" id="frame-size"></span>
+						<button class="btn-copy" id="btn-reload">reload</button>
+					</div>
+				</div>
+				<div class="frame-wrap" id="frame-wrap">
+					<iframe id="frame" title="HTML preview" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe>
+				</div>
+				<div class="console" id="console">
+					<div class="console-hdr" id="console-hdr">
+						<span class="out-row-label">Console</span>
+						<div class="out-row-right">
+							<span class="out-row-meta console-count" id="console-count">0</span>
+							<button class="btn-copy" id="btn-console-clear">clear</button>
+						</div>
+					</div>
+					<div class="console-body" id="console-body">
+						<div class="log-empty">— no output —</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<footer>// <a href="https://github.com/rscRoman" target="_blank" rel="noopener">Roman</a></footer>
+
+	<script>
+		var inputEl     = document.getElementById('input');
+		var frameEl     = document.getElementById('frame');
+		var frameWrap   = document.getElementById('frame-wrap');
+		var sizeEl      = document.getElementById('size');
+		var frameSizeEl = document.getElementById('frame-size');
+		var consoleEl   = document.getElementById('console');
+		var consoleBody = document.getElementById('console-body');
+		var consoleCnt  = document.getElementById('console-count');
+		var STORE_KEY   = 'dev-utils-html-preview';
+		var HASH_PREFIX = '#code=';
+		var timer       = null;
+		var logCount    = 0;
+		var errCount    = 0;
+
+		/* ── Console bridge (injected into the preview) ── */
+
+		var BRIDGE = '<script>(function(){' +
+			'function fmt(a){try{if(a instanceof Error)return a.stack||String(a);if(typeof a==="object"&&a!==null)return JSON.stringify(a,null,2);}catch(e){}return String(a);}' +
+			'function send(l,args){try{parent.postMessage({__devUtilsPreview:1,level:l,text:Array.prototype.map.call(args,fmt).join(" ")},"*");}catch(e){}}' +
+			'["log","info","warn","error","debug"].forEach(function(l){var o=console[l];console[l]=function(){send(l,arguments);if(o)o.apply(console,arguments);};});' +
+			'window.addEventListener("error",function(e){send("error",[e.message+(e.lineno?" (line "+e.lineno+")":"")]);});' +
+			'window.addEventListener("unhandledrejection",function(e){send("error",["Unhandled rejection: "+fmt(e.reason)]);});' +
+			'})();<\/script>';
+
+		function injectBridge(html) {
+			var m = html.match(/<head[^>]*>/i) || html.match(/<html[^>]*>/i) || html.match(/<!doctype[^>]*>/i);
+			if (!m) return BRIDGE + html;
+			var at = m.index + m[0].length;
+			return html.slice(0, at) + BRIDGE + html.slice(at);
+		}
+
+		/* ── Render ────────────────────────────────── */
+
+		function formatBytes(n) {
+			return n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+		}
+
+		function render() {
+			clearTimeout(timer);
+			var html = inputEl.value;
+			clearConsole();
+			frameEl.srcdoc = html ? injectBridge(html) : '';
+			sizeEl.textContent = html ? html.split('\n').length + ' lines · ' + formatBytes(new Blob([html]).size) : '';
+			try { localStorage.setItem(STORE_KEY, html); } catch (e) {}
+		}
+
+		function scheduleRender() {
+			clearTimeout(timer);
+			timer = setTimeout(render, 350);
+		}
+
+		inputEl.addEventListener('input', function () {
+			// drop a loaded share link once the code is edited, reload then uses localStorage
+			if (location.hash.indexOf(HASH_PREFIX) === 0) history.replaceState(null, '', location.pathname + location.search);
+			scheduleRender();
+		});
+
+		inputEl.addEventListener('paste', function () {
+			setTimeout(render, 0);
+		});
+
+		document.getElementById('btn-reload').addEventListener('click', render);
+
+		/* ── Tab key inserts a tab ─────────────────── */
+
+		inputEl.addEventListener('keydown', function (e) {
+			if (e.key !== 'Tab' || e.ctrlKey || e.altKey || e.metaKey) return;
+			e.preventDefault();
+			document.execCommand('insertText', false, '\t');
+		});
+
+		/* ── Console ───────────────────────────────── */
+
+		function updateCount() {
+			consoleCnt.textContent = errCount ? logCount + ' · ' + errCount + ' error' + (errCount > 1 ? 's' : '') : String(logCount);
+			consoleCnt.classList.toggle('has-err', errCount > 0);
+		}
+
+		function clearConsole() {
+			logCount = 0;
+			errCount = 0;
+			consoleBody.innerHTML = '<div class="log-empty">— no output —</div>';
+			updateCount();
+		}
+
+		window.addEventListener('message', function (e) {
+			if (e.source !== frameEl.contentWindow || !e.data || !e.data.__devUtilsPreview) return;
+			if (logCount === 0) consoleBody.innerHTML = '';
+			var line = document.createElement('div');
+			line.className = 'log-line ' + e.data.level;
+			line.textContent = e.data.text;
+			consoleBody.appendChild(line);
+			consoleBody.scrollTop = consoleBody.scrollHeight;
+			logCount++;
+			if (e.data.level === 'error') {
+				errCount++;
+				consoleEl.classList.add('open');
+			}
+			updateCount();
+		});
+
+		document.getElementById('console-hdr').addEventListener('click', function (e) {
+			if (e.target.closest('button')) return;
+			consoleEl.classList.toggle('open');
+		});
+
+		document.getElementById('btn-console-clear').addEventListener('click', clearConsole);
+
+		/* ── Viewport width ────────────────────────── */
+
+		function updateFrameSize() {
+			frameSizeEl.textContent = Math.round(frameEl.offsetWidth) + ' × ' + Math.round(frameEl.offsetHeight);
+		}
+
+		document.getElementById('width-toggle').addEventListener('click', function (e) {
+			var btn = e.target.closest('.seg-btn');
+			if (!btn) return;
+			document.querySelectorAll('#width-toggle .seg-btn').forEach(function (b) { b.classList.remove('active'); });
+			btn.classList.add('active');
+			var w = parseInt(btn.dataset.width, 10);
+			frameEl.style.width = w ? w + 'px' : '100%';
+			frameWrap.classList.toggle('constrained', w > 0);
+			updateFrameSize();
+		});
+
+		if (window.ResizeObserver) new ResizeObserver(updateFrameSize).observe(frameEl);
+		else window.addEventListener('resize', updateFrameSize);
+
+		/* ── Fullscreen ────────────────────────────── */
+
+		document.getElementById('btn-fullscreen').addEventListener('click', function () {
+			if (frameWrap.requestFullscreen) frameWrap.requestFullscreen();
+		});
+
+		/* ── Share link (deflate + base64url in hash) ── */
+
+		function toBase64Url(bytes) {
+			var bin = '';
+			for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+			return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+		}
+
+		function fromBase64Url(s) {
+			var bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+			var bytes = new Uint8Array(bin.length);
+			for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+			return bytes;
+		}
+
+		function compress(text) {
+			var stream = new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+			return new Response(stream).arrayBuffer().then(function (buf) { return toBase64Url(new Uint8Array(buf)); });
+		}
+
+		function decompress(encoded) {
+			var stream = new Blob([fromBase64Url(encoded)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+			return new Response(stream).text();
+		}
+
+		document.getElementById('btn-share').addEventListener('click', function () {
+			var btn  = this;
+			var html = inputEl.value;
+			if (!html) return;
+			compress(html).then(function (encoded) {
+				var url = location.origin + location.pathname + HASH_PREFIX + encoded;
+				history.replaceState(null, '', HASH_PREFIX + encoded);
+				return navigator.clipboard.writeText(url).then(function () {
+					btn.textContent = 'copied! (' + formatBytes(url.length) + ')';
+					setTimeout(function () { btn.textContent = 'Copy share link'; }, 2000);
+				});
+			}).catch(function (e) {
+				btn.textContent = 'failed';
+				setTimeout(function () { btn.textContent = 'Copy share link'; }, 2000);
+			});
+		});
+
+		/* ── Example / Clear ───────────────────────── */
+
+		var EXAMPLE = [
+			'<!DOCTYPE html>',
+			'<html lang="de">',
+			'<head>',
+			'\t<meta charset="UTF-8">',
+			'\t<style>',
+			'\t\tbody { font-family: system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; background: #f4f4f0; }',
+			'\t\t.card { background: #fff; padding: 32px 40px; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,.08); text-align: center; }',
+			'\t\tbutton { font: inherit; padding: 8px 20px; border: none; border-radius: 4px; background: #1a1a1c; color: #e8ff47; cursor: pointer; }',
+			'\t</style>',
+			'</head>',
+			'<body>',
+			'\t<div class="card">',
+			'\t\t<h1>Hallo 👋</h1>',
+			'\t\t<p>Clicks: <strong id="n">0</strong></p>',
+			'\t\t<button id="btn">Click me</button>',
+			'\t</div>',
+			'\t<script>',
+			'\t\tvar n = 0;',
+			'\t\tdocument.getElementById(\'btn\').onclick = function () {',
+			'\t\t\tdocument.getElementById(\'n\').textContent = ++n;',
+			'\t\t\tconsole.log(\'clicked\', n);',
+			'\t\t};',
+			'\t<\/script>',
+			'</body>',
+			'</html>'
+		].join('\n');
+
+		document.getElementById('btn-example').addEventListener('click', function () {
+			inputEl.value = EXAMPLE;
+			render();
+			inputEl.focus();
+		});
+
+		document.getElementById('btn-clear').addEventListener('click', function () {
+			inputEl.value = '';
+			if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+			render();
+			inputEl.focus();
+		});
+
+		/* ── Init: share link > last session ───────── */
+
+		function initFromStore() {
+			try { inputEl.value = localStorage.getItem(STORE_KEY) || ''; } catch (e) {}
+			render();
+		}
+
+		if (location.hash.indexOf(HASH_PREFIX) === 0) {
+			decompress(location.hash.slice(HASH_PREFIX.length)).then(function (html) {
+				inputEl.value = html;
+				render();
+			}).catch(initFromStore);
+		} else {
+			initFromStore();
+		}
+	</script>
+</body>
+</html>

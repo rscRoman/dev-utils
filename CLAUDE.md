@@ -22,6 +22,7 @@ utils/
   timestamp.html        Unix timestamp ↔ date; live clock, auto-detects seconds vs ms
   json.html             JSON pretty-print / minify with syntax highlighting; indent toggle (tab/2/4)
   filesize.html         Bit/Byte/KB…PB converter; shows decimal (×1000) and binary (×1024) side by side
+  html-preview.html     HTML → live sandboxed iframe preview; console bridge, viewport widths, share link (deflate in URL hash)
 favicon.svg             >_ icon in accent color — referenced by all pages
 ```
 
